@@ -602,8 +602,8 @@ textarea.finput{resize:vertical;min-height:68px}
 // ═══════════════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════════════
-const SHEET_ID  = '11BkFQSGvmAj2L3ZmnvYB_scVq070Kb1EDzJRZ580qvI';
-const SHEET_NAME= 'Booking_In';
+const SHEET_ID  = '11m5e8eedws48FopO8fX-payl4ZqYhgP5xE0GCiixpHM';
+const SHEET_NAME= 'Booking';
 const ADMIN_PASS= 'dtam2569'; // ← เปลี่ยนรหัสผ่านได้ที่นี่
 
 // ═══════════════════════════════════════════════════════
