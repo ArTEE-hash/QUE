@@ -604,7 +604,7 @@ textarea.finput{resize:vertical;min-height:68px}
 // ═══════════════════════════════════════════════════════
 const SHEET_ID  = '11m5e8eedws48FopO8fX-payl4ZqYhgP5xE0GCiixpHM';
 const SHEET_NAME= 'Booking';
-const ADMIN_PASS= 'dtam2569'; // ← เปลี่ยนรหัสผ่านได้ที่นี่
+let adminToken = '';
 
 // ═══════════════════════════════════════════════════════
 // STATE
@@ -675,75 +675,48 @@ const DB = {};
 DY.forEach(d=>{
   DB[d.k]={t900:emptySlots(),t1000:emptySlots(),t1100:emptySlots(),t1300:emptySlots(),t1400:emptySlots(),t1500:emptySlots()};
 });
-
-// Demo data (สาธิต)
-function setDemo(dk,tk,s,data){
-  if(DB[dk]&&DB[dk][tk]&&DB[dk][tk][s]) Object.assign(DB[dk][tk][s],data);
-}
-setDemo('d0901','t900','A',{n:'นางสาวสมหญิง แก้วใส',age:45,gender:'หญิง',phone:'081-234-5678',chiefCC:'ปวดหลังส่วนล่างเรื้อรัง',duration:'3 เดือน',chronic:'ความดันโลหิตสูง',surgery:'-',drugAllergy:'ไม่มี',foodAllergy:'ไม่มี',sk:8,wt:6});
-setDemo('d0901','t1000','A',{n:'นางประทุม ใจดี',age:38,gender:'หญิง',phone:'062-111-2222',chiefCC:'ปวดเมื่อยกล้ามเนื้อทั่วตัว',duration:'2 สัปดาห์',chronic:'-',surgery:'-',drugAllergy:'ไม่มี',foodAllergy:'กุ้ง ปลาหมึก',sk:9,wt:7});
-setDemo('d0901','t1300','A',{n:'นายวิชัย รุ่งเรือง',age:63,gender:'ชาย',phone:'085-999-0001',chiefCC:'ชาปลายมือและเท้า',duration:'6 เดือน',chronic:'เบาหวาน, ไขมันในเลือดสูง',surgery:'-',drugAllergy:'Sulfa',foodAllergy:'ไม่มี',sk:6,wt:4});
-setDemo('d0902','t900','A',{n:'นางสาวพิมพ์ใจ เสือสง่า',age:29,gender:'หญิง',phone:'093-222-3333',chiefCC:'อาการออฟฟิศซินโดรม ปวดต้นคอ',duration:'2 เดือน',chronic:'-',surgery:'-',drugAllergy:'ไม่มี',foodAllergy:'ไม่มี',sk:8,wt:5});
-setDemo('d0908','t1000','A',{n:'นายอรุณ ทองดี',age:47,gender:'ชาย',phone:'',chiefCC:'ปวดเอว ปวดร้าวลงขา',duration:'3 สัปดาห์',chronic:'ความดันโลหิตสูง',surgery:'-',drugAllergy:'ไม่มี',foodAllergy:'ไม่มี',sk:0,wt:0});
-
 let db = JSON.parse(JSON.stringify(DB));
 activeDay = DY[0].k;
 
 // ═══════════════════════════════════════════════════════
-// GOOGLE SHEETS LOADER
+// GOOGLE APPS SCRIPT BACKEND
 // ═══════════════════════════════════════════════════════
-async function loadSheets(){
-  setSyncState('spin','กำลังโหลดจาก Google Sheets...');
-  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
-  try{
-    const res=await fetch(url);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const txt=await res.text();
-    const json=JSON.parse(txt.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
-    const rows=json.table.rows;
-    const cols=json.table.cols;
-    const hdr={};
-    cols.forEach((c,i)=>{if(c.label)hdr[c.label.trim().toLowerCase()]=i;});
-    db=JSON.parse(JSON.stringify(DB));
-    rows.forEach(row=>{
-      const cv=i=>{const cell=row.c&&row.c[i];return(cell&&cell.v!=null)?String(cell.v).trim():''};
-      const dateRaw=cv(hdr['date']||hdr['วันที่']||0);
-      const timeRaw=cv(hdr['time']||hdr['เวลา']||1);
-      const slotRaw=(cv(hdr['slot']||hdr['หมอนวด']||2)).toUpperCase();
-      const name=cv(hdr['name']||hdr['ชื่อ']||3);
-      const phone=cv(hdr['phone']||hdr['เบอร์']||4);
-      const age=cv(hdr['age']||hdr['อายุ']||5);
-      const gender=cv(hdr['gender']||hdr['เพศ']||6);
-      const chiefCC=cv(hdr['chiefcc']||hdr['อาการ']||7);
-      const duration=cv(hdr['duration']||hdr['ระยะเวลา']||8);
-      const chronic=cv(hdr['chronic']||hdr['โรคประจำตัว']||9);
-      const surgery=cv(hdr['surgery']||hdr['ผ่าตัด']||10);
-      const drugAllergy=cv(hdr['drugallergy']||hdr['แพ้ยา']||11);
-      const foodAllergy=cv(hdr['foodallergy']||hdr['แพ้อาหาร']||12);
-      const sk=parseInt(cv(hdr['skill']||hdr['ฝีมือ']||13))||0;
-      const wt=parseInt(cv(hdr['weight']||hdr['น้ำหนัก']||14))||0;
-      if(!name||!dateRaw) return;
-      const dk=mapDate(dateRaw);
-      const tk=mapTime(timeRaw);
-      if(dk&&tk&&db[dk]&&db[dk][tk]){
-        db[dk][tk]['A']={n:name,age,gender,phone,chiefCC,duration,chronic,surgery,drugAllergy,foodAllergy,sk,wt};
-      }
-    });
-    setSyncState('ok','โหลดสำเร็จ '+new Date().toLocaleTimeString('th-TH')+' ('+rows.length+' แถว)');
-    renderAll();
-    toast('✅ โหลดข้อมูลจาก Google Sheets สำเร็จ');
-  }catch(err){
-    setSyncState('err','โหลดไม่สำเร็จ – ใช้ข้อมูลสาธิต ('+err.message+')');
-    toast('⚠️ โหลด Sheets ไม่สำเร็จ ใช้ข้อมูลสาธิต');
-    renderAll();
-  }
+function loadSheets(){
+  setSyncState('spin','กำลังโหลดข้อมูลจาก Google Sheets...');
+  google.script.run
+    .withSuccessHandler(function(rows){
+      db=JSON.parse(JSON.stringify(DB));
+      (rows||[]).forEach(function(x){
+        const dk=mapDate(x.date), tk=mapTime(x.time);
+        if(dk&&tk&&db[dk]&&db[dk][tk]){
+          db[dk][tk]['A']={
+            n:String(x.name||''), age:String(x.age||''), gender:String(x.gender||''),
+            phone:String(x.phone||''), chiefCC:String(x.chiefCC||''), duration:String(x.duration||''),
+            chronic:String(x.chronic||''), surgery:String(x.surgery||''),
+            drugAllergy:String(x.drugAllergy||''), foodAllergy:String(x.foodAllergy||''),
+            sk:Number(x.sk)||0, wt:Number(x.wt)||0
+          };
+        }
+      });
+      setSyncState('ok','โหลดสำเร็จ '+new Date().toLocaleTimeString('th-TH')+' ('+(rows||[]).length+' รายการ)');
+      renderAll();
+    })
+    .withFailureHandler(function(err){
+      setSyncState('err','โหลดข้อมูลไม่สำเร็จ');
+      toast('⚠️ '+(err&&err.message?err.message:'ไม่สามารถเชื่อมต่อ Google Sheets'));
+      renderAll();
+    })
+    .getBookings();
 }
 function mapDate(s){
-  const thM={'ก.ย.':'09'};
-  // extend all months
   const all={'ม.ค.':'01','ก.พ.':'02','มี.ค.':'03','เม.ย.':'04','พ.ค.':'05','มิ.ย.':'06','ก.ค.':'07','ส.ค.':'08','ก.ย.':'09','ต.ค.':'10','พ.ย.':'11','ธ.ค.':'12'};
-  s=s.trim();
-  for(const[mn,mv]of Object.entries(all)){if(s.includes(mn)){const d=s.replace(mn,'').replace(/\d{4}/,'').trim().padStart(2,'0');return 'd'+mv+d;}}
+  s=String(s||'').trim();
+  for(const[mn,mv]of Object.entries(all)){
+    if(s.includes(mn)){
+      const d=s.replace(mn,'').replace(/\d{4}/,'').trim().padStart(2,'0');
+      return 'd'+mv+d;
+    }
+  }
   const slsh=s.match(/^(\d{1,2})[\/\-](\d{1,2})/);
   if(slsh)return 'd'+slsh[2].padStart(2,'0')+slsh[1].padStart(2,'0');
   const iso=s.match(/(\d{4})[\/\-](\d{2})[\/\-](\d{2})/);
@@ -751,7 +724,7 @@ function mapDate(s){
   return null;
 }
 function mapTime(s){
-  s=s.replace(/[^\d:]/g,'').replace(':','');
+  s=String(s||'').replace(/[^\d:]/g,'').replace(':','');
   const m={'0900':'t900','900':'t900','1000':'t1000','1100':'t1100','1300':'t1300','1400':'t1400','1500':'t1500'};
   return m[s]||null;
 }
@@ -1223,8 +1196,9 @@ function saveBooking(){
   const n=document.getElementById('bName').value.trim();
   if(!n){document.getElementById('bName').focus();toast('⚠️ กรุณาระบุชื่อ-นามสกุล');return;}
   const gender=document.querySelector('input[name=bGender]:checked');
-  db[_d][_t][_s]={
-    n, age:document.getElementById('bAge').value.trim(),
+  const rec={
+    date:DY.find(d=>d.k===_d).l+' 2569', time:tLabel(_t), slot:_s,
+    name:n, age:document.getElementById('bAge').value.trim(),
     gender:gender?gender.value:'',
     phone:document.getElementById('bPhone').value.trim(),
     chiefCC:document.getElementById('bChiefCC').value.trim(),
@@ -1233,18 +1207,24 @@ function saveBooking(){
     surgery:document.getElementById('bSurgery').value.trim(),
     drugAllergy:document.getElementById('bDrugAllergy').value.trim(),
     foodAllergy:document.getElementById('bFoodAllergy').value.trim(),
-    sk:parseInt(document.getElementById('bSkS').value),
-    wt:parseInt(document.getElementById('bWtS').value)
+    sk:parseInt(document.getElementById('bSkS').value)||0,
+    wt:parseInt(document.getElementById('bWtS').value)||0
   };
-  closeModal();renderAll();toast('✅ บันทึกการนัดหมายเรียบร้อย: '+n);
+  google.script.run
+    .withSuccessHandler(function(result){
+      if(!result||!result.ok){toast('⚠️ '+(result&&result.message||'บันทึกไม่สำเร็จ'));return;}
+      closeModal();loadSheets();toast('✅ บันทึกการนัดหมายเรียบร้อย: '+n);
+    })
+    .withFailureHandler(function(err){toast('⚠️ '+(err&&err.message?err.message:'บันทึกไม่สำเร็จ'));})
+    .createBooking(rec);
 }
 function saveEdit(){
   const n=document.getElementById('eN').value.trim();
   if(!n){document.getElementById('eN').focus();return;}
   const old=db[_d][_t][_s];
-  db[_d][_t][_s]={
-    n, age:document.getElementById('eAge').value.trim(),
-    gender:old.gender,
+  const rec={
+    date:DY.find(d=>d.k===_d).l+' 2569', time:tLabel(_t), slot:_s,
+    name:n, age:document.getElementById('eAge').value.trim(), gender:old.gender,
     phone:document.getElementById('eP').value.trim(),
     chiefCC:document.getElementById('eCC').value.trim(),
     duration:document.getElementById('eDur').value.trim(),
@@ -1252,14 +1232,27 @@ function saveEdit(){
     surgery:document.getElementById('eSrg').value.trim(),
     drugAllergy:document.getElementById('eDA').value.trim(),
     foodAllergy:document.getElementById('eFA').value.trim(),
-    sk:parseInt(document.getElementById('eSkS').value),
-    wt:parseInt(document.getElementById('eWtS').value)
+    sk:parseInt(document.getElementById('eSkS').value)||0,
+    wt:parseInt(document.getElementById('eWtS').value)||0
   };
-  closeModal();renderAll();toast('💾 บันทึกข้อมูลเรียบร้อย');
+  google.script.run
+    .withSuccessHandler(function(result){
+      if(!result||!result.ok){toast('⚠️ '+(result&&result.message||'บันทึกไม่สำเร็จ'));return;}
+      closeModal();loadSheets();toast('💾 บันทึกข้อมูลเรียบร้อย');
+    })
+    .withFailureHandler(function(err){toast('⚠️ '+(err&&err.message?err.message:'บันทึกไม่สำเร็จ'));})
+    .updateBooking(adminToken,rec);
 }
 function deleteBooking(){
-  db[_d][_t][_s]=emptyRecord();
-  closeModal();renderAll();toast('🗑 ลบการนัดหมายเรียบร้อย');
+  if(!confirm('ยืนยันการลบการนัดหมายนี้หรือไม่?')) return;
+  const rec={date:DY.find(d=>d.k===_d).l+' 2569',time:tLabel(_t),slot:_s};
+  google.script.run
+    .withSuccessHandler(function(result){
+      if(!result||!result.ok){toast('⚠️ '+(result&&result.message||'ลบไม่สำเร็จ'));return;}
+      closeModal();loadSheets();toast('🗑 ลบการนัดหมายเรียบร้อย');
+    })
+    .withFailureHandler(function(err){toast('⚠️ '+(err&&err.message?err.message:'ลบไม่สำเร็จ'));})
+    .deleteBooking(adminToken,rec);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1274,14 +1267,24 @@ function openAdminLogin(){
 }
 function closeAdminLogin(){document.getElementById('admlogBg').classList.remove('open');}
 function doLogin(){
-  if(document.getElementById('admPw').value===ADMIN_PASS){
-    isAdmin=true;closeAdminLogin();updateAdminBar();renderAll();toast('🔓 เข้าสู่ระบบ Admin สำเร็จ');
-  }else{
-    document.getElementById('admErr').style.display='block';
-    document.getElementById('admPw').select();
-  }
+  const pw=document.getElementById('admPw').value;
+  google.script.run
+    .withSuccessHandler(function(result){
+      if(result&&result.ok){
+        adminToken=result.token||'';
+        isAdmin=true;closeAdminLogin();updateAdminBar();renderAll();toast('🔓 เข้าสู่ระบบ Admin สำเร็จ');loadSheets();
+      }else{
+        document.getElementById('admErr').style.display='block';
+        document.getElementById('admPw').select();
+      }
+    })
+    .withFailureHandler(function(){
+      document.getElementById('admErr').style.display='block';
+    })
+    .loginAdmin(pw);
 }
 function logoutAdmin(){
+  adminToken='';
   isAdmin=false;updateAdminBar();renderAll();toast('🔒 ออกจากระบบ Admin แล้ว');
 }
 function updateAdminBar(){
